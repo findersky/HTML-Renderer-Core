@@ -140,54 +140,59 @@ namespace TheArtOfDev.HtmlRenderer.PdfSharp
                 orgPageSize = new XSize(orgPageSize.Height, orgPageSize.Width);
             }
 
-            var pageSize = new XSize(orgPageSize.Width - config.MarginLeft - config.MarginRight, orgPageSize.Height - config.MarginTop - config.MarginBottom);
+            var pageSize = config.PageOrientation == PageOrientation.Landscape ?
+                new XSize(orgPageSize.Height - config.MarginLeft - config.MarginRight, orgPageSize.Width - config.MarginTop - config.MarginBottom) :
+                new XSize(orgPageSize.Width - config.MarginLeft - config.MarginRight, orgPageSize.Height - config.MarginTop - config.MarginBottom);
 
-            if (!string.IsNullOrEmpty(html))
+            if (string.IsNullOrEmpty(html))
             {
-                using (var container = new HtmlContainer())
+                return;
+            }
+
+            using (var container = new HtmlContainer())
+            {
+                if (stylesheetLoad != null)
+                    container.StylesheetLoad += stylesheetLoad;
+                if (imageLoad != null)
+                    container.ImageLoad += imageLoad;
+
+                container.Location = new XPoint(config.MarginLeft, config.MarginTop);
+                container.MaxSize = new XSize(pageSize.Width, 0);
+                container.SetHtml(html, cssData);
+                container.PageSize = pageSize;
+                container.MarginBottom = config.MarginBottom;
+                container.MarginLeft = config.MarginLeft;
+                container.MarginRight = config.MarginRight;
+                container.MarginTop = config.MarginTop;
+
+                // layout the HTML with the page width restriction to know how many pages are required
+                using (var measure = XGraphics.CreateMeasureContext(pageSize, XGraphicsUnit.Point, XPageDirection.Downwards))
                 {
-                    if (stylesheetLoad != null)
-                        container.StylesheetLoad += stylesheetLoad;
-                    if (imageLoad != null)
-                        container.ImageLoad += imageLoad;
-
-                    container.Location = new XPoint(config.MarginLeft, config.MarginTop);
-                    container.MaxSize = new XSize(pageSize.Width, 0);
-                    container.SetHtml(html, cssData);
-                    container.PageSize = pageSize;
-                    container.MarginBottom = config.MarginBottom;
-                    container.MarginLeft = config.MarginLeft;
-                    container.MarginRight = config.MarginRight;
-                    container.MarginTop = config.MarginTop;
-
-                    // layout the HTML with the page width restriction to know how many pages are required
-                    using (var measure = XGraphics.CreateMeasureContext(pageSize, XGraphicsUnit.Point, XPageDirection.Downwards))
-                    {
-                        container.PerformLayout(measure);
-                    }
-
-                    // while there is un-rendered HTML, create another PDF page and render with proper offset for the next page
-                    double scrollOffset = 0;
-                    while (scrollOffset > -container.ActualSize.Height)
-                    {
-                        var page = document.AddPage();
-                        page.Height = orgPageSize.Height;
-                        page.Width = orgPageSize.Width;
-
-                        using (var g = XGraphics.FromPdfPage(page))
-                        {
-                            //g.IntersectClip(new XRect(config.MarginLeft, config.MarginTop, pageSize.Width, pageSize.Height));
-                            g.IntersectClip(new XRect(0, 0, page.Width, page.Height));
-
-                            container.ScrollOffset = new XPoint(0, scrollOffset);
-                            container.PerformPaint(g);
-                        }
-                        scrollOffset -= pageSize.Height;
-                    }
-
-                    // add web links and anchors
-                    HandleLinks(document, container, orgPageSize, pageSize);
+                    container.PerformLayout(measure);
                 }
+
+                // while there is un-rendered HTML, create another PDF page and render with proper offset for the next page
+                double scrollOffset = 0;
+                while (scrollOffset > -container.ActualSize.Height)
+                {
+                    var page = document.AddPage();
+                    page.Height = orgPageSize.Height;
+                    page.Width = orgPageSize.Width;
+                    page.Orientation = config.PageOrientation;
+
+                    using (var g = XGraphics.FromPdfPage(page))
+                    {
+                        //g.IntersectClip(new XRect(config.MarginLeft, config.MarginTop, pageSize.Width, pageSize.Height));
+                        g.IntersectClip(new XRect(0, 0, page.Width, page.Height));
+
+                        container.ScrollOffset = new XPoint(0, scrollOffset);
+                        container.PerformPaint(g);
+                    }
+                    scrollOffset -= pageSize.Height;
+                }
+
+                // add web links and anchors
+                HandleLinks(document, container, orgPageSize, pageSize);
             }
         }
 
