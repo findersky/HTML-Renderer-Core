@@ -134,20 +134,12 @@ namespace TheArtOfDev.HtmlRenderer.PdfSharp
             else
                 orgPageSize = config.ManualPageSize;
 
-            if (config.PageOrientation == PageOrientation.Landscape)
-            {
-                // invert pagesize for landscape
-                orgPageSize = new XSize(orgPageSize.Height, orgPageSize.Width);
-            }
-
             var pageSize = config.PageOrientation == PageOrientation.Landscape ?
                 new XSize(orgPageSize.Height - config.MarginLeft - config.MarginRight, orgPageSize.Width - config.MarginTop - config.MarginBottom) :
                 new XSize(orgPageSize.Width - config.MarginLeft - config.MarginRight, orgPageSize.Height - config.MarginTop - config.MarginBottom);
 
             if (string.IsNullOrEmpty(html))
-            {
                 return;
-            }
 
             using (var container = new HtmlContainer())
             {
